@@ -179,7 +179,7 @@ def main(year: int = DEFAULT_YEAR, target_days: int = DEFAULT_DAYS,
 
             try:
                 driver.get(url)
-                time.sleep(random.uniform(2.0, 4.0))
+                time.sleep(random.uniform(1.0, 2.0))
 
                 race_day = scrape_day(driver, race_date)
 

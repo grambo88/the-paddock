@@ -1,0 +1,14 @@
+# Data files — too large for GitHub
+data/
+*.db
+*.db-shm
+*.db-wal
+*.parquet
+scraper.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/

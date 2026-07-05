@@ -46,7 +46,7 @@ from config import (
     DELAY_MIN, DELAY_MAX, DISTANCE_FURLONGS,
     HEAD_DELAY_MIN, HEAD_DELAY_MAX,
     LOG_PATH, MEET_WINDOWS, PAGE_WAIT_SECONDS,
-    RACE_TYPE_ENCODE, SCRAPER_HEADLESS,
+    RACE_DATES, RACE_TYPE_ENCODE, SCRAPER_HEADLESS,
     SEASONS, SURFACE_ENCODE, XPATH,
 )
 from database import Database
@@ -273,26 +273,35 @@ def _is_complete(race_date: str) -> bool:
 
 def _iter_dates(year: int, start_override: str = None):
     """
-    Yield dates within the Saratoga meet window for the given year.
-    Falls back to full year if year not in MEET_WINDOWS.
+    Yield race dates for a given year.
+    Uses RACE_DATES exact list if available — no dark days, no HEAD checks needed.
+    Falls back to MEET_WINDOWS range for years without an exact list.
     """
-    if year in MEET_WINDOWS:
+    if year in RACE_DATES:
+        dates = RACE_DATES[year]
+        if start_override:
+            dates = [d for d in dates if d >= start_override]
+        log.info("Using %d known race dates for %d", len(dates), year)
+        for d in dates:
+            yield d
+    elif year in MEET_WINDOWS:
         meet_start, meet_end = MEET_WINDOWS[year]
         start = date.fromisoformat(meet_start)
         end   = date.fromisoformat(meet_end)
+        if start_override:
+            override = date.fromisoformat(start_override)
+            if override > start:
+                start = override
+        while start <= end:
+            yield start.isoformat()
+            start += timedelta(days=1)
     else:
-        log.warning("No meet window defined for %d — checking full year", year)
+        log.warning("No dates defined for %d — checking full year", year)
         start = date(year, 1, 1)
         end   = date(year, 12, 31)
-
-    if start_override:
-        override = date.fromisoformat(start_override)
-        if override > start:
-            start = override
-
-    while start <= end:
-        yield start.isoformat()
-        start += timedelta(days=1)
+        while start <= end:
+            yield start.isoformat()
+            start += timedelta(days=1)
 
 def _polite_sleep(min_s: float = DELAY_MIN, max_s: float = DELAY_MAX) -> None:
     time.sleep(random.uniform(min_s, max_s))
@@ -562,7 +571,7 @@ def main(years: list = None, start_override: str = None) -> None:
                 log.info("▶ %s", race_date)
                 try:
                     driver.get(url)
-                    _polite_sleep(2.0, 4.0)
+                    _polite_sleep(1.0, 2.0)
 
                     race_day = scrape_day(driver, race_date)
 

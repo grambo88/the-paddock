@@ -18,12 +18,28 @@ LOG_PATH      = BASE_DIR / "scraper.log"
 TRACK_SLUG        = "saratoga"
 BASE_URL          = f"https://entries.horseracingnation.com/entries-results/{TRACK_SLUG}"
 SEASONS           = [2025]
-SCRAPER_HEADLESS  = False   # True = run Chrome in background
-DELAY_MIN         = 4.0     # seconds — min pause between page loads
-DELAY_MAX         = 9.0     # seconds — max pause between page loads
-HEAD_DELAY_MIN    = 0.6     # pause after a HEAD miss (no race day)
-HEAD_DELAY_MAX    = 1.4
-PAGE_WAIT_SECONDS = 15      # max wait for race tables to appear on page
+
+# Exact race dates for each season — avoids checking dark days
+# and ensures no race days are missed
+RACE_DATES = {
+    2025: [
+        "2025-07-10", "2025-07-11", "2025-07-12", "2025-07-13",
+        "2025-07-16", "2025-07-17", "2025-07-18", "2025-07-19", "2025-07-20",
+        "2025-07-23", "2025-07-24", "2025-07-25", "2025-07-26", "2025-07-27",
+        "2025-07-30", "2025-07-31", "2025-08-01", "2025-08-02", "2025-08-03",
+        "2025-08-06", "2025-08-07", "2025-08-08", "2025-08-09", "2025-08-10",
+        "2025-08-13", "2025-08-14", "2025-08-15", "2025-08-16", "2025-08-17",
+        "2025-08-20", "2025-08-21", "2025-08-22", "2025-08-23", "2025-08-24",
+        "2025-08-27", "2025-08-28", "2025-08-29", "2025-08-30", "2025-08-31",
+        "2025-09-01",
+    ],
+}
+SCRAPER_HEADLESS  = True    # headless = faster, no visual rendering
+DELAY_MIN         = 2.0     # seconds — min pause between page loads
+DELAY_MAX         = 5.0     # seconds — max pause between page loads
+HEAD_DELAY_MIN    = 0.3     # pause after a HEAD miss
+HEAD_DELAY_MAX    = 0.8
+PAGE_WAIT_SECONDS = 10      # headless loads faster, 10s is sufficient
 
 # Saratoga meet typically runs late July through early September.
 # These windows keep the scraper focused — only dates in range are checked.
