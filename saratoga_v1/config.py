@@ -17,7 +17,7 @@ LOG_PATH      = BASE_DIR / "scraper.log"
 # ── Scraper ────────────────────────────────────────────────────────────────────
 TRACK_SLUG        = "saratoga"
 BASE_URL          = f"https://entries.horseracingnation.com/entries-results/{TRACK_SLUG}"
-SEASONS           = [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018]
+SEASONS           = [2025]
 SCRAPER_HEADLESS  = False   # True = run Chrome in background
 DELAY_MIN         = 4.0     # seconds — min pause between page loads
 DELAY_MAX         = 9.0     # seconds — max pause between page loads
@@ -64,6 +64,7 @@ SURFACE_ENCODE = {
 
 # ── Race type encoding ─────────────────────────────────────────────────────────
 RACE_TYPE_ENCODE = {
+    # Flat races
     "Maiden Special Weight":       0,
     "Maiden Claiming":             1,
     "Maiden":                      2,
@@ -75,10 +76,18 @@ RACE_TYPE_ENCODE = {
     "Stakes":                      8,
     "Handicap":                    9,
     "Graded Stakes":               10,
+    # Jump races — flagged separately so they can be filtered from flat ML models
+    "Hurdle":                      20,
+    "Steeplechase":                21,
+    "Hunt":                        22,
 }
+
+# Jump race codes — used to filter hurdle/steeplechase from flat race training data
+JUMP_RACE_CODES = {20, 21, 22}
 
 # ── Distance → furlongs ────────────────────────────────────────────────────────
 DISTANCE_FURLONGS = {
+    # Flat distances
     "4F":       4.0,
     "4 1/2F":   4.5,
     "5F":       5.0,
@@ -95,6 +104,17 @@ DISTANCE_FURLONGS = {
     "1 1/2M":  12.0,
     "1 5/8M":  13.0,
     "1 3/4M":  14.0,
+    # Hurdle / steeplechase distances
+    "2M":       16.0,
+    "2 1/16M":  16.5,
+    "2 1/8M":   17.0,
+    "2 3/16M":  17.5,
+    "2 1/4M":   18.0,
+    "2 3/8M":   19.0,
+    "2 1/2M":   20.0,
+    "2 5/8M":   21.0,
+    "2 3/4M":   22.0,
+    "3M":       24.0,
 }
 
 # ── Exotic bet types to capture ────────────────────────────────────────────────

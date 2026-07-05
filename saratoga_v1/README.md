@@ -1,4 +1,3 @@
-# grambo88
 # Saratoga Horse Racing — ML Dataset Pipeline
 
 Scrapes Saratoga race results from horseracingnation.com and builds a

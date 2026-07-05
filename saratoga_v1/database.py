@@ -378,6 +378,7 @@ class Database:
                                AND res.horse_id = e.horse_id
         LEFT JOIN race_times rt ON rt.race_id = r.race_id
         WHERE e.scratched = 0
+        AND (r.race_type_code IS NULL OR r.race_type_code < 20)  -- exclude hurdle/steeplechase
         ORDER BY r.date, r.race_num, e.post_position
         """
         with self._conn() as con:
