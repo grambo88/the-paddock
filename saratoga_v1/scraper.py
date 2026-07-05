@@ -51,7 +51,6 @@ from config import (
 )
 from database import Database
 
-# ── Logging — console + file ───────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s %(message)s",
@@ -63,7 +62,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-EXPORT_PARQUET = True   # set False to skip parquet re-export after each day
+EXPORT_PARQUET = True
 
 
 # ── Driver ─────────────────────────────────────────────────────────────────────
@@ -92,7 +91,6 @@ def _strip_currency(text: str) -> str:
     return text.replace("$", "").replace(",", "").strip()
 
 def _parse_float(val) -> float:
-    """Convert string to float; return None on failure or empty/dash."""
     s = str(val).strip()
     if s in ("", "-", "None", "nan"):
         return None
@@ -102,7 +100,6 @@ def _parse_float(val) -> float:
         return None
 
 def _odds_to_decimal(raw: str) -> float:
-    """'8/1' → 8.0  |  '5/2' → 2.5  |  '4' → 4.0  |  else → None"""
     s = raw.strip()
     if "/" in s:
         try:
@@ -113,35 +110,36 @@ def _odds_to_decimal(raw: str) -> float:
     return _parse_float(s)
 
 def _parse_speed_figure(text: str) -> int:
-    """Extract integer from parentheses: 'Noble Thought (65)' → 65"""
     m = re.search(r'\((-?\d+)\)', text)
     return int(m.group(1)) if m else None
 
 def _strip_speed_figure(text: str) -> str:
-    """Remove trailing '(65)' from horse name."""
     return re.sub(r'\s*\(-?\d+\)\s*$', '', text).strip()
 
 def _parse_distance(raw: str) -> float:
-    for key in sorted(DISTANCE_FURLONGS, key=len, reverse=True):
-        if raw.strip().startswith(key):
-            return DISTANCE_FURLONGS[key]
-    log.warning("Unknown distance in '%s'", raw)
+    s = raw.strip().split(",")[0].strip()
+    s = s.upper()
+    s = re.sub(r'\s+([FM])$', r'\1', s)
+    if s in DISTANCE_FURLONGS:
+        return DISTANCE_FURLONGS[s]
+    log.warning("Unknown distance in '%s' (normalised: '%s')", raw, s)
     return None
 
 def _encode_surface(raw: str) -> tuple:
+    raw_lower = raw.lower()
     for label, code in SURFACE_ENCODE.items():
-        if label in raw:
+        if label.lower() in raw_lower:
             return label, code
     return None, None
 
 def _encode_race_type(raw: str) -> tuple:
+    raw_lower = raw.lower()
     for label in sorted(RACE_TYPE_ENCODE, key=len, reverse=True):
-        if label in raw:
+        if label.lower() in raw_lower:
             return label, RACE_TYPE_ENCODE[label]
     return None, None
 
 def _parse_time_to_seconds(raw: str) -> float:
-    """':22.51' → 22.51  |  '1:13.53' → 73.53"""
     raw = raw.strip().lstrip(":")
     try:
         if ":" in raw:
@@ -152,10 +150,6 @@ def _parse_time_to_seconds(raw: str) -> float:
         return None
 
 def _parse_trainer_jockey(cell_text: str) -> tuple:
-    """
-    HRN puts Trainer and Jockey in one cell separated by newline.
-    Returns (trainer, jockey). If only one name present, assumes jockey.
-    """
     parts = [p.strip() for p in cell_text.split("\n") if p.strip()]
     if len(parts) >= 2:
         return parts[0], parts[1]
@@ -164,7 +158,6 @@ def _parse_trainer_jockey(cell_text: str) -> tuple:
     return None, None
 
 def _parse_program(raw: str) -> int:
-    """Parse '1', '1A', '2B' → integer (strips letter suffixes)."""
     digits = re.sub(r'[^0-9]', '', raw.strip())
     return int(digits) if digits else None
 
@@ -177,9 +170,6 @@ def _write_csv(path: Path, rows: list) -> None:
         csv.writer(f).writerows(rows)
 
 def _save_race(race_dir: Path, race: dict) -> None:
-    """Write all CSVs for a single race to race_dir."""
-
-    # info.csv
     _write_csv(race_dir / "info.csv", [
         ["date","race_num","post_time","distance_furlongs","surface",
          "surface_code","race_type","race_type_code","purse",
@@ -192,7 +182,6 @@ def _save_race(race_dir: Path, race: dict) -> None:
          race.get("available_bets")],
     ])
 
-    # entries.csv
     rows = [["program_num","post_position","horse_name","sire","trainer",
              "jockey","morning_line_odds","morning_line_decimal",
              "hrn_speed_figure","scratched"]]
@@ -206,7 +195,6 @@ def _save_race(race_dir: Path, race: dict) -> None:
         ])
     _write_csv(race_dir / "entries.csv", rows)
 
-    # results.csv
     rows = [["horse_name","finish_position","win_payout",
              "place_payout","show_payout","hrn_speed_figure_post"]]
     for r in race.get("results", []):
@@ -217,14 +205,12 @@ def _save_race(race_dir: Path, race: dict) -> None:
         ])
     _write_csv(race_dir / "results.csv", rows)
 
-    # exotics.csv
     rows = [["bet_type","combination","payout","total_pool"]]
     for ex in race.get("exotic_payouts", []):
         rows.append([ex.get("bet_type"), ex.get("combination"),
                      ex.get("payout"), ex.get("total_pool")])
     _write_csv(race_dir / "exotics.csv", rows)
 
-    # times.csv
     times = race.get("race_times")
     if times:
         _write_csv(race_dir / "times.csv", [
@@ -245,7 +231,6 @@ def _page_exists(url: str) -> bool:
         return False
 
 def _is_complete(race_date: str) -> bool:
-    """Return True if this date already has at least one complete race scraped."""
     date_dir  = DATA_DIR / race_date
     if not date_dir.exists():
         return False
@@ -257,10 +242,6 @@ def _is_complete(race_date: str) -> bool:
                for f in ["entries.csv", "results.csv", "info.csv"])
 
 def _iter_dates(year: int, start_override: str = None):
-    """
-    Yield dates within the Saratoga meet window for the given year.
-    Falls back to full year if year not in MEET_WINDOWS.
-    """
     if year in MEET_WINDOWS:
         meet_start, meet_end = MEET_WINDOWS[year]
         start = date.fromisoformat(meet_start)
@@ -286,11 +267,6 @@ def _polite_sleep(min_s: float = DELAY_MIN, max_s: float = DELAY_MAX) -> None:
 # ── Core scrape ────────────────────────────────────────────────────────────────
 
 def scrape_day(driver: webdriver.Chrome, race_date: str) -> dict:
-    """
-    Scrape all races for race_date (YYYY-MM-DD).
-    Returns: { "date": ..., "races": [ { race dict }, ... ] }
-    Returns empty dict if no race tables found.
-    """
     try:
         WebDriverWait(driver, PAGE_WAIT_SECONDS).until(
             EC.presence_of_element_located((By.XPATH, XPATH["entries_table"]))
@@ -299,7 +275,6 @@ def scrape_day(driver: webdriver.Chrome, race_date: str) -> dict:
         log.info("  No race tables found — not a race day")
         return {}
 
-    # ── Page-level elements ───────────────────────────────────────────────────
     entry_tables   = driver.find_elements(By.XPATH, XPATH["entries_table"])
     payout_tables  = driver.find_elements(By.XPATH, XPATH["payout_table"])
     info_els       = driver.find_elements(By.XPATH, XPATH["race_distance"])
@@ -316,7 +291,6 @@ def scrape_day(driver: webdriver.Chrome, race_date: str) -> dict:
 
     for race_num, entry_table in enumerate(entry_tables, start=1):
 
-        # ── Race-level info ───────────────────────────────────────────────────
         race_header = info_els[race_num-1].text.strip()  if race_num <= len(info_els)  else ""
         purse_raw   = purse_els[race_num-1].text.strip() if race_num <= len(purse_els) else ""
         purse_raw   = _strip_currency(purse_raw.replace("Purse:", ""))
@@ -337,32 +311,45 @@ def scrape_day(driver: webdriver.Chrome, race_date: str) -> dict:
             pass
 
         # ── Entries ───────────────────────────────────────────────────────────
-        # Column layout: [0] #  [1] PP  [2] Horse/Sire  [3] Trainer/Jockey  [4] ML
+        # Confirmed 6-column layout from HTML inspection:
+        # [0] img badge (alt="1")  [1] PP  [2] Horse/Sire
+        # [3] Trainer/Jockey  [4] scratch col (empty)  [5] ML odds
         entries = []
         for tr in entry_table.find_elements(By.TAG_NAME, "tr"):
             cells = tr.find_elements(By.TAG_NAME, "td")
             if len(cells) < 4:
                 continue
 
-            scratched    = tr in scratched_els
-            horse_cell   = cells[2].text.strip()
-            trainer_cell = cells[3].text.strip()
-            ml_raw       = cells[4].text.strip() if len(cells) > 4 else ""
+            scratched = tr in scratched_els
 
+            # Program number from img alt attribute
+            prog_raw = ""
+            try:
+                imgs = cells[0].find_elements(By.TAG_NAME, "img")
+                if imgs:
+                    prog_raw = imgs[0].get_attribute("alt") or ""
+            except Exception:
+                pass
+
+            pp_raw = cells[1].text.strip()
+
+            horse_cell  = cells[2].text.strip()
             horse_parts = [p.strip() for p in horse_cell.split("\n") if p.strip()]
-            horse_name  = horse_parts[0] if horse_parts else ""
-            speed_fig   = _parse_speed_figure(horse_name)
-            horse_name  = _strip_speed_figure(horse_name)
+            horse_line  = horse_parts[0] if horse_parts else ""
+            speed_fig   = _parse_speed_figure(horse_line)
+            horse_name  = _strip_speed_figure(horse_line)
             sire        = horse_parts[1] if len(horse_parts) > 1 else None
 
-            trainer, jockey = _parse_trainer_jockey(trainer_cell)
+            trainer, jockey = _parse_trainer_jockey(cells[3].text.strip())
 
-            ml_clean   = ml_raw.strip()
-            ml_decimal = _odds_to_decimal(ml_clean) if ml_clean and ml_clean != "-" else None
+            # cells[4] is empty scratch indicator — ML is cells[5]
+            ml_raw     = cells[5].text.strip() if len(cells) > 5 else ""
+            ml_clean   = ml_raw.split("\n")[0].strip()  # strips "MTO" second line
+            ml_decimal = _odds_to_decimal(ml_clean) if ml_clean and ml_clean not in ("-", "") else None
 
             entries.append({
-                "program_num":          _parse_program(cells[0].text.strip()),
-                "post_position":        int(cells[1].text.strip()) if cells[1].text.strip().isdigit() else None,
+                "program_num":          _parse_program(prog_raw),
+                "post_position":        int(pp_raw) if pp_raw.isdigit() else None,
                 "horse_name":           horse_name,
                 "sire":                 sire,
                 "trainer":              trainer,
@@ -376,28 +363,27 @@ def scrape_day(driver: webdriver.Chrome, race_date: str) -> dict:
         field_size = sum(1 for e in entries if not e["scratched"])
 
         # ── Results ───────────────────────────────────────────────────────────
-        # Column layout: [0] badge  [1] Runner (Speed)  [2] Win  [3] Place  [4] Show
+        # Confirmed layout: badge is inline inside cells[0]
+        # [0] Runner(Speed)+badge  [1] Win  [2] Place  [3] Show
         results = []
         if race_num <= len(payout_tables):
             position = 1
             for tr in payout_tables[race_num-1].find_elements(By.TAG_NAME, "tr"):
                 cells = tr.find_elements(By.TAG_NAME, "td")
-                if len(cells) < 3:
+                if len(cells) < 2:
                     continue
 
-                runner_cell = ""
-                if len(cells) > 1:
-                    c0 = cells[0].text.strip()
-                    c1 = cells[1].text.strip()
-                    runner_cell = c1 if (len(c0) <= 2 and c0.replace("-","").isdigit()) else c0
-
+                runner_cell  = cells[0].text.strip()
                 speed_post   = _parse_speed_figure(runner_cell)
                 horse_name_r = _strip_speed_figure(runner_cell)
 
-                offset    = 2 if (len(cells) > 1 and len(cells[0].text.strip()) <= 2) else 1
-                win_pay   = _parse_float(_strip_currency(cells[offset].text))   if len(cells) > offset   else None
-                place_pay = _parse_float(_strip_currency(cells[offset+1].text)) if len(cells) > offset+1 else None
-                show_pay  = _parse_float(_strip_currency(cells[offset+2].text)) if len(cells) > offset+2 else None
+                def _payout(cell_text: str) -> float:
+                    s = _strip_currency(cell_text).strip()
+                    return None if s in ("-", "", "—") else _parse_float(s)
+
+                win_pay   = _payout(cells[2].text) if len(cells) > 1 else None
+                place_pay = _payout(cells[3].text) if len(cells) > 2 else None
+                show_pay  = _payout(cells[4].text) if len(cells) > 3 else None
 
                 if horse_name_r:
                     results.append({
@@ -447,7 +433,6 @@ def scrape_day(driver: webdriver.Chrome, race_date: str) -> dict:
         except Exception:
             pass
 
-        # ── Assemble + save ───────────────────────────────────────────────────
         race = {
             "date":              race_date,
             "track":             "Saratoga",

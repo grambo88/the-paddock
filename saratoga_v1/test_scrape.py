@@ -37,7 +37,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-DEFAULT_DAYS = 5
+DEFAULT_DAYS = 2
 DEFAULT_YEAR = 2025
 
 
@@ -180,6 +180,18 @@ def main(year: int = DEFAULT_YEAR, target_days: int = DEFAULT_DAYS,
             try:
                 driver.get(url)
                 time.sleep(random.uniform(2.0, 4.0))
+
+                # TEMP DEBUG — remove after
+                from selenium.webdriver.common.by import By
+                tables = driver.find_elements(By.XPATH, "//table[@class='table table-sm table-hrn table-entries']")
+                if tables:
+                    rows = tables[0].find_elements(By.TAG_NAME, "tr")
+                    for tr in rows[:3]:
+                        cells = tr.find_elements(By.TAG_NAME, "td")
+                        for i, cell in enumerate(cells):
+                            print(f"  cell[{i}] text='{cell.text}' inner='{cell.get_attribute('innerHTML')[:100]}'")
+                        print("---")
+                # END DEBUG
 
                 race_day = scrape_day(driver, race_date)
 

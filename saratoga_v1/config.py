@@ -64,14 +64,17 @@ SURFACE_ENCODE = {
 
 # ── Race type encoding ─────────────────────────────────────────────────────────
 RACE_TYPE_ENCODE = {
-    "Maiden Claiming":  0,
-    "Maiden":           1,
-    "Claiming":         2,
-    "Allowance":        3,
+    "Maiden Special Weight":       0,
+    "Maiden Claiming":             1,
+    "Maiden":                      2,
+    "Claiming":                    3,
     "Allowance Optional Claiming": 4,
-    "Stakes":           5,
-    "Handicap":         6,
-    "Graded Stakes":    7,
+    "Allowance":                   5,
+    "Starter Allowance":           6,
+    "Starter Claiming":            7,
+    "Stakes":                      8,
+    "Handicap":                    9,
+    "Graded Stakes":               10,
 }
 
 # ── Distance → furlongs ────────────────────────────────────────────────────────
