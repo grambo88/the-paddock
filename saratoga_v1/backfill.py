@@ -20,7 +20,11 @@ import logging
 import time
 import random
 
-from scraper  import build_driver, scrape_day, _is_complete, _page_exists, _save_race
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
+from scraper  import build_driver, scrape_day, _is_complete, _page_exists
 from database import Database
 from config   import BASE_URL, DATA_DIR
 
@@ -31,24 +35,17 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+RESULTS_TABLE_XPATH = "//table[@class='table table-hrn table-payouts']"
+RESULTS_WAIT        = 25   # seconds to wait for results table to render
+
 
 def backfill_date(race_date: str, race_num: int = None, force: bool = False) -> None:
-    """
-    Scrape a specific date and optionally filter to a single race number.
-
-    Args:
-        race_date : YYYY-MM-DD string
-        race_num  : if provided, only insert this race number (1-based)
-        force     : if True, re-scrape even if already in DB
-    """
     url = f"{BASE_URL}/{race_date}"
 
-    # Check if already complete
     if _is_complete(race_date) and not force:
         log.info("%s already scraped — use --force to re-scrape", race_date)
         return
 
-    # Check page exists
     if not _page_exists(url):
         log.error("No page found for %s — check the date is correct", race_date)
         return
@@ -59,7 +56,19 @@ def backfill_date(race_date: str, race_num: int = None, force: bool = False) -> 
 
     try:
         driver.get(url)
-        time.sleep(random.uniform(2.0, 3.0))
+
+        # Wait specifically for results table — slower to render than entries
+        log.info("Waiting up to %ds for results table ...", RESULTS_WAIT)
+        try:
+            WebDriverWait(driver, RESULTS_WAIT).until(
+                EC.presence_of_element_located((By.XPATH, RESULTS_TABLE_XPATH))
+            )
+            log.info("Results table found — scraping ...")
+        except Exception:
+            log.warning("Results table did not appear — entries only page")
+
+        # Extra buffer after table appears
+        time.sleep(3.0)
 
         race_day = scrape_day(driver, race_date)
 
@@ -67,26 +76,22 @@ def backfill_date(race_date: str, race_num: int = None, force: bool = False) -> 
             log.warning("No races found on %s", race_date)
             return
 
-        # Filter to specific race if requested
         if race_num is not None:
             races = [r for r in race_day["races"] if r["race_num"] == race_num]
             if not races:
-                log.error("Race %d not found on %s — available races: %s",
+                log.error("Race %d not found on %s — available: %s",
                           race_num, race_date,
                           [r["race_num"] for r in race_day["races"]])
                 return
             race_day["races"] = races
             log.info("Filtered to race %d only", race_num)
 
-        # Insert into DB
         n = db.insert_day(race_day)
         log.info("Inserted %d race(s) from %s into DB", n, race_date)
 
-        # Re-export parquet
         db.export_parquet()
         log.info("Parquet updated")
 
-        # Summary
         for race in race_day["races"]:
             log.info("  race%d: %d horses | %d results | %d exotics",
                      race["race_num"],

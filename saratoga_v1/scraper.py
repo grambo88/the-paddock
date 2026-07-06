@@ -571,7 +571,8 @@ def main(years: list = None, start_override: str = None) -> None:
                 log.info("▶ %s", race_date)
                 try:
                     driver.get(url)
-                    _polite_sleep(1.0, 2.0)
+                    # _polite_sleep(1.0, 2.0)
+                    time.sleep(random.uniform(3.0, 6.0))
 
                     race_day = scrape_day(driver, race_date)
 
